@@ -49,9 +49,47 @@ final public class CourseTree {
         this.availCourses = new HashSet<>();
     }
 
-    public String printAvail() {
-        return this.availCourses.toString();
+    // Getter: return the this.available course
+    public HashSet<String> getAvailCourse() {
+        return this.availCourses;
     }
+
+    // Getter: return the this.finishedCourses course
+    public Stack<String> getFinishedCourse() {
+        return this.finishedCourses;
+    }
+
+    // Getter: return the this.courses course
+    HashMap<String, Course> getAllCourse() {
+        return this.courses;
+    }
+
+    // Getter: return the this.flagTree course
+    HashMap<String, State> getFlagCourse() {
+        return this.flagTree;
+    }
+
+    void changeCourseState(String course, State state) {
+
+        if (state == State.AVAILABLE) {
+            this.finishedCourses.remove(course);
+            this.availCourses.add(course);
+
+        } else if (state == State.FINISHED) {
+            this.finishedCourses.add(course);
+            this.availCourses.remove(course);
+
+            ArrayList<String> subCourses=courses.get(course).getSub();
+            for(String sub:subCourses){
+                // TODO 可以优化加入setter
+                Course subCourse = courses.get(sub);
+                subCourse.finishOnePreCourse();
+                courses.put(sub,subCourse);
+            }
+        }
+        this.flagTree.put(course, state);
+    }
+
 
     private static void arrayClear(ArrayList<String> pre, ArrayList<String> sub) {
         pre.clear();
@@ -65,7 +103,7 @@ final public class CourseTree {
                 "ENG1901", "ENG1902", "ENG1110", "ENG2367", "MATH1151",
                 "MATH1152", "MATH2153", "PHY1250", "PHY1251", "MATH3345",
                 "STAT3470", "SUV1110", "CSE1223", "CSE2221", "CSE2231",
-                "CSE2321", "CSE3241"}));
+                "CSE2321", "CSE3241"}));//TODO flag miss
         for (String course : courseSet) {
             flagTree.put(course, State.NONE);
         }
@@ -113,13 +151,34 @@ final public class CourseTree {
         res.put("ENG2367", new Course("ENG2367", pre, sub));
 
         arrayClear(pre, sub);
+        pre.add("ENG2367");
+        res.put("CSE2501", new Course("2501", pre, sub));
+
+        arrayClear(pre, sub);
+        pre.add("ENG2367");
+        pre.add("CSE2331");
+        pre.add("CSE2421");
+        res.put("CSE3901", new Course("CSE3901", pre, sub));
+
+        arrayClear(pre, sub);
+        pre.add("ENG2367");
+        pre.add("CSE2331");
+        pre.add("CSE2421");
+        res.put("CSE3902", new Course("CSE3902", pre, sub));
+
+        arrayClear(pre, sub);
+        pre.add("ENG2367");
+        pre.add("CSE2331");
+        pre.add("CSE2421");
+        res.put("CSE3903", new Course("CSE3903", pre, sub));
+
+        arrayClear(pre, sub);
         sub.add("PHY1251");
         res.put("PHY1250", new Course("PHY1250", pre, sub));
 
         arrayClear(pre, sub);
         pre.add("PHY1250");
         pre.add("MATH1151");
-        pre.add("PHY1250");
         res.put("PHY1251", new Course("PHY1251", pre, sub));
 
         arrayClear(pre, sub);
@@ -153,6 +212,7 @@ final public class CourseTree {
 
         arrayClear(pre, sub);
         sub.add("MATH1152");
+        sub.add("PHY1251");
         res.put("MATH1151", new Course("MATH1151", pre, sub));
 
         arrayClear(pre, sub);
@@ -177,55 +237,84 @@ final public class CourseTree {
         arrayClear(pre, sub);
         res.put("SUV1110", new Course("SUV1110", pre, sub));
 
+        arrayClear(pre, sub);
+        pre.add("CSE2231");
+        pre.add("CSE2321");
+        res.put("CSE2331", new Course("CSE2331", pre, sub));
+
+
+        arrayClear(pre, sub);
+        pre.add("CSE2231");
+        pre.add("CSE2321");
+        res.put("CSE2421", new Course("CSE2421", pre, sub));
+
+        arrayClear(pre, sub);
+        pre.add("CSE2231");
+        pre.add("CSE2321");
+        res.put("CSE2501", new Course("CSE2501", pre, sub));
+
         return res;
     }
 
-    private void markAllPre(String botCourse) {
-        if (this.flagTree.get(botCourse) == State.NONE) {
+    /*
+     *  Mark one of the courses that the student has finished and also mark all the pre-course(s)
+     *  for each finished course. This method using Recursion to finish the process.
+     */
+    private void markAllPre(String finished_course) {
+        if (this.flagTree.get(finished_course) == State.NONE || this.flagTree.get(finished_course) == State.AVAILABLE) {
             // This course should be marked now;
-            this.flagTree.put(botCourse, State.FINISHED);
+            this.flagTree.put(finished_course, State.FINISHED);
             // Get the child course list for this specific course node
-            ArrayList<String> pre = this.courses.get(botCourse).getPre();
+            ArrayList<String> pre_courses = this.courses.get(finished_course).getPre();
             // make all its prerequisite courses marked
-            for (String preName : pre) {
-                this.markAllPre(preName);
-                // this.courses.get(preName).deleteAllPre();
+            for (String pre_course : pre_courses) {
+                this.markAllPre(pre_course);
             }
         }
     }
 
-    public void firstMarkAndAddAll(HashSet<String> set) {
+    /*
+     *  Mark all the courses that the student has finished
+     */
+    void firstMarkAndAddAll(HashSet<String> finished_courses) {
         // Keep the records of the finished courses of the students
-        this.finishedCourses.addAll(set);
-        for (String name : set) {
-            this.markAllPre(name);
-            // Clear all the prerequisite courses of this finished course
-            // this.courses.get(name).deleteAllPre();
+        this.finishedCourses.addAll(finished_courses);
+        // Mark all the prerequisite courses of the individual finished course and the individual
+        // course itself to FINISHED STATE
+        for (String course : finished_courses) {
+            this.markAllPre(course);
         }
-        for (String current : set) {
-            ArrayList<String> curretnSub = this.courses.get(current).getSub();
-            for (int i = 0; i < curretnSub.size(); i++) {
-                String perSub = curretnSub.get(i);
-                // Determine if this subCourse has been marked
-                if (this.flagTree.get(perSub) == State.NONE) {
-                    ArrayList<String> subPreList = this.courses.get(perSub)
-                            .getPre();
-                    ArrayList<String> tempMeetList = new ArrayList<String>();
-                    // Find all the meet prerequisite courses
+        // Mark all the sub courses of the individual finished course to AVAILABLE STATE
+        for (String course : finished_courses) {
+            ArrayList<String> sub_courses = this.courses.get(course).getSub();
+            /*
+             * Determine if all the sub_courses can be selected by the student one by one: if the
+             * single subCourse has been marked before since it's possible that two finished course
+             * both have the same sub_course(s) which may be marked in the one of the two courses
+             * (may be in this course's sub_courses or the other finished courses' sub_courses).
+             */
+            for (int i = 0; i < sub_courses.size(); i++) {
+                String sub_course = sub_courses.get(i);
+                if (this.flagTree.get(sub_course) == State.NONE) {
+                    ArrayList<String> subPreList = this.courses.get(sub_course).getPre();
+                    // Find all the equivalent prerequisite courses like MATH 2153 has two kinds of
+                    // prerequisite course-MATH 1152 OR MATH 1172 Remove the contemporary finished
+                    // prerequisite courses from this individual sub_course
                     for (int j = 0; j < subPreList.size(); j++) {
                         if (this.flagTree.get(subPreList.get(j)) == State.FINISHED) {
-                            tempMeetList.add(subPreList.get(j));
+                            this.courses.get(sub_course).finishOnePreCourse();
                         }
                     }
-                    // Delete them from this sub course
-                    this.courses.get(perSub).getPre().removeAll(tempMeetList);
-                    if (this.courses.get(perSub).getPreSize() == 0) {
-                        this.availCourses.add(perSub);
-                        this.flagTree.put(perSub, State.AVAILABLE);
+                    // Finally determine if this sub_course can be selected and
+                    // then change its state to be AVAILABLE
+                    if (this.courses.get(sub_course).getPreSize() == 0) {
+                        this.availCourses.add(sub_course);
+                        this.flagTree.put(sub_course, State.AVAILABLE);
                     }
                 }
             }
         }
+        // Finally,enable all the basic courses to be selected if the student didn't take them
         for (String basic : this.basicCourses) {
             if (this.flagTree.get(basic) == State.NONE) {
                 this.availCourses.add(basic);
@@ -234,25 +323,76 @@ final public class CourseTree {
         }
     }
 
-
-    public boolean undoable() {
-        return !this.finishedCourses.isEmpty();
-    }
-
-    public void undo() {
-        String undoCourse = this.finishedCourses.pop();
-        this.flagTree.put(undoCourse, State.AVAILABLE);
-        ArrayList<String> subList = this.courses.get(undoCourse).getSub();
-
-        for (String sub : subList) {
-            if (this.availCourses.contains(sub)) {
-                this.availCourses.remove(sub);
-                this.flagTree.put(sub, State.NONE);
+    /*
+     *  Mark the course that the student has finished and updated the available courses List
+     */
+    HashSet<String> updateFinishedCourse(String finished_course) {
+        HashSet<String> newAvailableCourse = new HashSet<>();
+        //update finished self
+        changeCourseState(finished_course, State.FINISHED);
+        //update all sub's state
+        for (String sub : this.courses.get(finished_course).getSub()) {
+            if (courses.get(sub).getPreSize() <= 0) {
+                Course tempCourse = courses.get(sub);
+                tempCourse.unfinishedPre = 0;
+                courses.put(sub, tempCourse);
+                availCourses.add(sub);
+                flagTree.put(sub, State.AVAILABLE);
+                newAvailableCourse.add(sub);
             }
         }
-
-
+        return newAvailableCourse;
     }
+
+    // Getter for getting a single Course object
+    Course getSingleCourse(String course) {
+        return this.courses.get(course);
+    }
+
+    private boolean undoable(String subCourse) {
+        return this.finishedCourses.contains(subCourse) || this.availCourses.contains(subCourse);
+    }
+
+    void undo(ArrayList<String> subCourses) {
+        for (String subCourse : subCourses) {
+            // This means this course has been put to one of the semester layouts or
+            // this course is still in the available courses layouts
+            this.courses.get(subCourse).undoOnePreCourse();
+            if (undoable(subCourse)) {
+                this.flagTree.put(subCourse, State.NONE);
+                if (this.finishedCourses.contains(subCourse)) {
+                    this.finishedCourses.remove(subCourse);
+                    // Some courses may has sub Courses like PHY1251
+                    if (this.courses.get(subCourse).getSub().size() > 0) {
+                        ArrayList<String> subSubCourses = this.courses.get(subCourse).getSub();
+                        undo(subSubCourses);
+                    }
+                } else {
+                    this.availCourses.remove(subCourse);
+                }
+            }
+        }
+    }
+
+    ArrayList<String> getDeepSub(String subCourse) {
+        ArrayList<String> allSub = new ArrayList<>();
+        if (this.courses.get(subCourse).getSub().size() > 0) {
+            getDeepSubHelper(allSub, this.courses.get(subCourse).getSub());
+        }
+        return allSub;
+    }
+
+    private void getDeepSubHelper(ArrayList<String> allSub, ArrayList<String> subCourses) {
+        for (String course : subCourses) {
+            if (this.courses.get(course).getSub().size() > 0) {
+                getDeepSubHelper(allSub, this.courses.get(course).getSub());
+            }
+            if (!allSub.contains(course)) {
+                allSub.add(course);
+            }
+        }
+    }
+
 
     public void addCourse(String selectCourse) {
         // First remove the course from availCourses and add that to finishedCourses
@@ -280,6 +420,5 @@ final public class CourseTree {
         }
         return true;
     }
+
 }
-
-
